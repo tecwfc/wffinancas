@@ -1,6 +1,7 @@
-// ========== CONFIGURAÇÃO ==========
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxsmpl2FN0DhoB7Eqkw5T9fR_fzpcHh4GsmX67cNGjQR7HLQrMKUrSC1ZXOpAPE8jSD/exec";
+// ========== CONFIGURAÇÃO ==========
+// ⚠️ IMPORTANTE: Substitua pela URL do seu Google Apps Script ⚠️
+const API_URL = "https://script.google.com/macros/s/AKfycbwW1hAzlkHjtNzl-pmT7eLq_2K2zeNN-cGG58kpzN-5cCAw1i-dpq4o-2hip4qHF677/exec";
 
 let usuarioLogado = null;
 let dados = { metas: {}, lancamentos: [], cartoes: [], faturas: [], pagamentos: [] };
@@ -73,10 +74,11 @@ function popularMeses() {
 }
 
 // ========== COMUNICAÇÃO COM O BACKEND ==========
+
 async function carregarDados() {
   mostrarLoading(true);
   try {
-    const response = await fetch(`${API_URL}?action=carregarDados&t=${Date.now()}`);
+    const response = await fetch(`${API_URL}?action=carregarDados&usuario=${encodeURIComponent(usuarioLogado.usuario)}&t=${Date.now()}`);
     const resultado = await response.json();
     
     if (resultado.sucesso && resultado.dados) {
@@ -115,13 +117,21 @@ async function carregarDados() {
 
 async function salvarDados() {
   try {
+    console.log("Enviando dados para salvar:", dados);
+    
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'salvarDados', dados: dados })
+      mode: 'no-cors',
+      body: JSON.stringify({ 
+        action: 'salvarDados', 
+        usuario: usuarioLogado.usuario,
+        dados: dados 
+      })
     });
-    const resultado = await response.json();
-    return resultado.sucesso;
+    
+    console.log("Dados enviados");
+    return true;
+    
   } catch(e) {
     console.error('Erro ao salvar:', e);
     return false;
@@ -341,6 +351,7 @@ function abrirModalCartao(editar = null) {
   document.getElementById('modalCartao').classList.add('active');
 }
 
+
 async function salvarCartao() {
   const id = document.getElementById('editCartaoId').value;
   const nome = document.getElementById('cartaoNome').value.trim();
@@ -363,20 +374,26 @@ async function salvarCartao() {
     } else {
       dados.cartoes.push({
         id: 'CRT-' + Date.now(),
-        nome,
-        limite,
+        nome: nome,
+        limite: limite,
         limiteUsado: 0,
-        diaFechamento,
-        diaVencimento,
-        cor: '#2563eb'
+        diaFechamento: diaFechamento,
+        diaVencimento: diaVencimento,
+        cor: "#2563eb"
       });
     }
-    await salvarDados();
-    mostrarToast(`✅ Cartão ${id ? 'editado' : 'adicionado'}!`);
-    fecharModal('modalCartao');
-    await carregarDados();
-  } catch (error) {
-    mostrarToast(error.message, 'error');
+    
+    const salvou = await salvarDados();
+    if (salvou) {
+      mostrarToast('✅ Cartão salvo com sucesso!');
+      fecharModal('modalCartao');
+      await carregarDados();
+    } else {
+      mostrarToast('Erro ao salvar cartão', 'error');
+    }
+  } catch (e) {
+    console.error(e);
+    mostrarToast('Erro ao salvar cartão', 'error');
   } finally {
     mostrarLoading(false);
   }
