@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Meu Financeiro - Controle de Gastos</title>
+  <meta name="description" content="Sistema de controle financeiro com cartões, faturas e relatórios">
+  <meta name="author" content="Meu Financeiro">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+ <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Carregando...</div>
+</div>
+
+<div class="toast" id="toast">
+  <i class="fas" id="toastIcon"></i>
+  <span id="toastMessage"></span>
+</div>
+
+<!-- Login Screen -->
+<div class="login-container" id="loginScreen">
+  <div class="login-card">
+    <div class="login-header">
+      <h1><i class="fas fa-coins"></i> Meu Financeiro</h1>
+      <p>Sistema de Controle Financeiro</p>
+    </div>
+    <div class="form-group">
+      <label><i class="fas fa-user"></i> Usuário</label>
+      <input type="text" id="loginUsuario" placeholder="admin">
+    </div>
+    <div class="form-group">
+      <label><i class="fas fa-lock"></i> Senha</label>
+      <input type="password" id="loginSenha" placeholder="••••••">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="fazerLogin()">
+      <i class="fas fa-sign-in-alt"></i> Entrar
+    </button>
+  </div>
+</div>
+
+<!-- App Container -->
+<div class="app-container" id="appContainer">
+  <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2><i class="fas fa-chart-line"></i> Meu Financeiro</h2>
+    </div>
+    <div class="nav-menu">
+      <div class="nav-item active" onclick="mudarPagina('dashboard')">
+        <i class="fas fa-chart-pie"></i> <span>Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="mudarPagina('lancamentos')">
+        <i class="fas fa-plus-circle"></i> <span>Lançamentos</span>
+      </div>
+      <div class="nav-item" onclick="mudarPagina('cartoes')">
+        <i class="fas fa-credit-card"></i> <span>Cartões</span>
+      </div>
+      <div class="nav-item" onclick="mudarPagina('faturas')">
+        <i class="fas fa-file-invoice-dollar"></i> <span>Faturas</span>
+      </div>
+      <div class="nav-item" onclick="mudarPagina('historico')">
+        <i class="fas fa-history"></i> <span>Histórico</span>
+      </div>
+      <div class="nav-item" onclick="mudarPagina('relatorios')">
+        <i class="fas fa-print"></i> <span>Relatórios</span>
+      </div>
+      <div class="nav-item" id="btnAdmin" style="display:none" onclick="mudarPagina('admin')">
+        <i class="fas fa-crown"></i> <span>Administração</span>
+      </div>
+    </div>
+    <div class="user-info">
+      <div style="font-size:12px; color:#64748b;">Logado como</div>
+      <div style="font-weight:700;" id="usuarioNomeSidebar">—</div>
+      <button class="btn-danger btn-sm" style="margin-top:12px; width:100%" onclick="fazerLogout()">
+        <i class="fas fa-sign-out-alt"></i> Sair
+      </button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <!-- Dashboard Page -->
+    <div class="page active" id="pageDashboard">
+      <h1 style="margin-bottom:24px"><i class="fas fa-chart-pie"></i> Dashboard</h1>
+      <div class="filter-bar">
+        <select id="filtroMesDashboard" onchange="carregarDashboard()"></select>
+        <select id="filtroAnoDashboard" onchange="carregarDashboard()"></select>
+      </div>
+      <div class="stats-grid" id="statsDashboard"></div>
+      <div class="category-grid" id="categoriasGrid"></div>
+      <div class="charts-grid">
+        <div class="chart-card"><h3><i class="fas fa-chart-pie"></i> Gastos por Categoria</h3><canvas id="graficoPizza" style="max-height:250px"></canvas></div>
+        <div class="chart-card"><h3><i class="fas fa-chart-line"></i> Evolução Mensal</h3><canvas id="graficoLinha" style="max-height:250px"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Lançamentos Page -->
+    <div class="page" id="pageLancamentos">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px">
+        <h1><i class="fas fa-plus-circle"></i> Lançamentos</h1>
+        <button class="btn-primary" onclick="abrirModalLancamento()"><i class="fas fa-plus"></i> Novo Lançamento</button>
+      </div>
+      <div class="filter-bar">
+        <input type="month" id="filtroMesLancamentos" onchange="carregarLancamentos()">
+        <select id="filtroCategoriaLancamentos" onchange="carregarLancamentos()"></select>
+        <button class="btn-primary btn-sm" onclick="carregarLancamentos()"><i class="fas fa-search"></i> Filtrar</button>
+      </div>
+      <div class="data-table">
+        <table>
+          <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Ações</th></tr></thead>
+          <tbody id="listaLancamentos"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cartões Page -->
+    <div class="page" id="pageCartoes">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px">
+        <h1><i class="fas fa-credit-card"></i> Cartões</h1>
+        <button class="btn-primary" onclick="abrirModalCartao()"><i class="fas fa-plus"></i> Novo Cartão</button>
+      </div>
+      <div class="data-table">
+        <table>
+          <thead><tr><th>Nome</th><th>Limite</th><th>Usado</th><th>Disponível</th><th>%</th><th>Ações</th></tr></thead>
+          <tbody id="listaCartoes"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Faturas Page -->
+    <div class="page" id="pageFaturas">
+      <h1 style="margin-bottom:24px"><i class="fas fa-file-invoice-dollar"></i> Faturas</h1>
+      <div class="filter-bar">
+        <select id="filtroCartaoFatura" onchange="carregarFaturas()"></select>
+        <select id="filtroMesFatura" onchange="carregarFaturas()"></select>
+        <select id="filtroAnoFatura" onchange="carregarFaturas()"></select>
+      </div>
+      <div class="stats-grid" id="resumoFaturas"></div>
+      <div id="listaFaturas"></div>
+    </div>
+
+    <!-- Histórico Page -->
+    <div class="page" id="pageHistorico">
+      <h1 style="margin-bottom:24px"><i class="fas fa-history"></i> Histórico de Pagamentos</h1>
+      <div class="filter-bar">
+        <select id="filtroHistoricoMes" onchange="carregarHistorico()"></select>
+        <select id="filtroHistoricoAno" onchange="carregarHistorico()"></select>
+        <button class="btn-primary btn-sm" onclick="carregarHistorico()"><i class="fas fa-search"></i> Filtrar</button>
+      </div>
+      <div class="data-table">
+        <table>
+          <thead><tr><th>Mês/Ano</th><th>Data Pagamento</th><th>Cartões</th><th>Parcelas</th><th>Valor</th></tr></thead>
+          <tbody id="listaHistorico"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Relatórios Page -->
+    <div class="page" id="pageRelatorios">
+      <h1 style="margin-bottom:24px"><i class="fas fa-print"></i> Relatórios</h1>
+      <div class="chart-card">
+        <div class="filter-bar">
+          <select id="relatorioTipo">
+            <option value="faturas">Faturas Pendentes</option>
+            <option value="gastos">Gastos por Categoria</option>
+            <option value="cartoes">Resumo Cartões</option>
+            <option value="historico">Histórico Pagamentos</option>
+          </select>
+          <select id="relatorioMes"></select>
+          <select id="relatorioAno"></select>
+          <button class="btn-primary" onclick="gerarPDF()"><i class="fas fa-file-pdf"></i> Gerar PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Page -->
+    <div class="page" id="pageAdmin">
+      <h1 style="margin-bottom:24px"><i class="fas fa-crown"></i> Administração</h1>
+      <button class="btn-primary" onclick="abrirModalUsuario()" style="margin-bottom:20px"><i class="fas fa-user-plus"></i> Novo Usuário</button>
+      <div class="data-table">
+        <table>
+          <thead><tr><th>Usuário</th><th>Nome</th><th>Tipo</th><th>Ações</th></tr></thead>
+          <tbody id="listaUsuarios"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modais -->
+<div class="form-modal" id="modalLancamento">
+  <div class="form-container">
+    <div class="form-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+      <h3 id="modalLancamentoTitulo"><i class="fas fa-plus"></i> Novo Lançamento</h3>
+      <button onclick="fecharModal('modalLancamento')" style="background:none; border:none; font-size:24px; cursor:pointer">&times;</button>
+    </div>
+    <input type="hidden" id="editLancamentoId">
+    <div class="form-group"><label>Data</label><input type="date" id="lancamentoData"></div>
+    <div class="form-group"><label>Descrição</label><input type="text" id="lancamentoDescricao" placeholder="Ex: Compra no supermercado"></div>
+    <div class="form-group"><label>Categoria</label><select id="lancamentoCategoria"></select></div>
+    <div class="form-group"><label>Cartão</label><select id="lancamentoCartao"></select></div>
+    <div class="form-group"><label>Valor Total (R$)</label><input type="number" step="0.01" id="lancamentoValor" onchange="calcularParcela()"></div>
+    <div class="form-group"><label>Número de Parcelas</label><select id="lancamentoParcelas" onchange="calcularParcela()">
+      <option value="1">1x (À vista)</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option><option value="5">5x</option>
+      <option value="6">6x</option><option value="7">7x</option><option value="8">8x</option><option value="9">9x</option><option value="10">10x</option>
+      <option value="11">11x</option><option value="12">12x</option>
+    </select></div>
+    <div class="form-group"><label>Valor da Parcela</label><input type="text" id="lancamentoValorParcela" readonly style="background:#f1f5f9"></div>
+    <div style="display:flex; gap:12px; justify-content:flex-end">
+      <button class="btn-secondary" onclick="fecharModal('modalLancamento')">Cancelar</button>
+      <button class="btn-primary" onclick="salvarLancamento()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="form-modal" id="modalCartao">
+  <div class="form-container">
+    <div class="form-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+      <h3><i class="fas fa-credit-card"></i> Cartão</h3>
+      <button onclick="fecharModal('modalCartao')" style="background:none; border:none; font-size:24px; cursor:pointer">&times;</button>
+    </div>
+    <input type="hidden" id="editCartaoId">
+    <div class="form-group"><label>Nome do Cartão</label><input type="text" id="cartaoNome" placeholder="Ex: Nubank, Itaú"></div>
+    <div class="form-group"><label>Limite (R$)</label><input type="number" step="0.01" id="cartaoLimite"></div>
+    <div class="form-group"><label>Dia de Fechamento</label><input type="number" id="cartaoFechamento" min="1" max="31"></div>
+    <div class="form-group"><label>Dia de Vencimento</label><input type="number" id="cartaoVencimento" min="1" max="31"></div>
+    <div style="display:flex; gap:12px; justify-content:flex-end">
+      <button class="btn-secondary" onclick="fecharModal('modalCartao')">Cancelar</button>
+      <button class="btn-primary" onclick="salvarCartao()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="form-modal" id="modalUsuario">
+  <div class="form-container">
+    <div class="form-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+      <h3><i class="fas fa-user"></i> Usuário</h3>
+      <button onclick="fecharModal('modalUsuario')" style="background:none; border:none; font-size:24px; cursor:pointer">&times;</button>
+    </div>
+    <input type="hidden" id="editUsuarioOriginal">
+    <div class="form-group"><label>Usuário (login)</label><input type="text" id="usuarioLogin" placeholder="ex: joao"></div>
+    <div class="form-group"><label>Senha</label><input type="password" id="usuarioSenha" placeholder="••••••"></div>
+    <div class="form-group"><label>Nome Completo</label><input type="text" id="usuarioNome" placeholder="João Silva"></div>
+    <div class="form-group"><label><input type="checkbox" id="usuarioAdmin"> Administrador</label></div>
+    <div style="display:flex; gap:12px; justify-content:flex-end">
+      <button class="btn-secondary" onclick="fecharModal('modalUsuario')">Cancelar</button>
+      <button class="btn-primary" onclick="salvarUsuario()">Salvar</button>
+    </div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
